@@ -50,24 +50,40 @@ node test-ticket-system.js
 
 ## 🚀 Quick Start
 
-### **🏃‍♂️ Run the Server**
+### **🛠️ Complete Setup Instructions**
+
+#### **Step 1: Clone and Install**
 ```bash
-# Install dependencies
+git clone https://github.com/yugandhar0609/ticket_selling.git
+cd ticket_selling
 npm install
+```
 
-# Setup database with optimizations
+#### **Step 2: Initialize Database**
+```bash
 npm run db:reset
+```
 
-# Start the ultra-optimized server
+#### **Step 3: Start Server**
+```bash
 npm start
 ```
 
-### **🧪 Run the Stress Test**
+#### **Step 4: Run Stress Test** *(In new terminal)*
 ```bash
-# Test 1000 concurrent users
 node test-ticket-system.js
+```
 
-# Expected output: 1000/1000 successful purchases in ~4 seconds
+### **🏆 Expected Test Results**
+```
+🎫 Starting concurrent load test with 1000 users...
+
+📊 Results:
+Sold seats: 1000/1000
+Failed requests: 0/1000
+Duration: 4207ms
+📈 Status Code Breakdown:
+  200: 1000 requests
 ```
 
 ### **🐳 Using Docker (Production)**
@@ -295,28 +311,28 @@ await Promise.all(Array.from({ length: USERS }, makePurchase));
 
 ### **🔧 Commands Reference**
 
-#### **Start the Server**
+#### **Complete Setup Sequence**
 ```bash
-npm start
-```
-- Starts the ultra-optimized API server on port 3000
-- Initializes in-memory caching for lightning-fast performance
-- Enables SQLite WAL mode for maximum concurrency
+# 1. Clone and install
+git clone https://github.com/yugandhar0609/ticket_selling.git
+cd ticket_selling
+npm install
 
-#### **Run Stress Test**
-```bash
+# 2. Initialize database
+npm run db:reset
+
+# 3. Start server
+npm start
+
+# 4. Run stress test (in new terminal)
 node test-ticket-system.js
 ```
-- Simulates 1000 concurrent users buying tickets
-- Tests system under extreme load conditions
-- Validates zero overselling and perfect idempotency
-- **Expected Result**: `Sold seats: 1000/1000` in ~4 seconds
 
-#### **Database Setup**
-```bash
-npm run db:reset    # Reset and seed database
-npm run seed        # Seed database with test data
-```
+#### **Individual Commands**
+- **`npm run db:reset`** - Reset and seed database with fresh data
+- **`npm start`** - Start the ultra-optimized API server on port 3000
+- **`node test-ticket-system.js`** - Run 1000 concurrent user stress test
+- **`npm run seed`** - Seed database with test data only
 
 ### **🔒 Advanced Concurrency Control**
 
