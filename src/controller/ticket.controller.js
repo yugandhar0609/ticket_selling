@@ -9,7 +9,6 @@ const prisma = require('../config/database');
 const httpStatus = require('http-status');
 const logger = require('../config/logger');
 
-// In-memory cache for high-performance seat tracking
 let seatCache = {
   eventId: null,
   totalSeats: 0,
@@ -17,10 +16,8 @@ let seatCache = {
   lastUpdated: 0
 };
 
-// Idempotency cache to avoid database lookups
 const idempotencyCache = new Map();
 
-// Initialize seat cache
 async function initializeSeatCache() {
   try {
     const event = await prisma.event.findFirst({
@@ -41,15 +38,9 @@ async function initializeSeatCache() {
   }
 }
 
-// Initialize cache on startup
 initializeSeatCache();
 
-/**
- * GET /event
- * Returns current event seat status
- */
 const getEvent = catchAsync(async (req, res) => {
-  // Use cache if available and recent
   if (seatCache.eventId && Date.now() - seatCache.lastUpdated < 5000) {
     const seatsRemaining = seatCache.totalSeats - seatCache.seatsSold;
     return res.status(200).json({
@@ -59,7 +50,6 @@ const getEvent = catchAsync(async (req, res) => {
     });
   }
 
-  // Fallback to database
   const event = await prisma.event.findFirst({
     orderBy: { createdAt: 'desc' }
   });
@@ -68,7 +58,6 @@ const getEvent = catchAsync(async (req, res) => {
     throw createApiError(httpStatus.NOT_FOUND, 'No event found');
   }
 
-  // Update cache
   seatCache = {
     eventId: event.id,
     totalSeats: event.totalSeats,
@@ -85,18 +74,13 @@ const getEvent = catchAsync(async (req, res) => {
   });
 });
 
-/**
- * Ultra-fast purchase function with minimal database operations
- */
 async function attemptPurchase(idempotencyKey, quantity) {
-  // Check idempotency cache first
   if (idempotencyCache.has(idempotencyKey)) {
     const cachedResult = idempotencyCache.get(idempotencyKey);
     logger.info(`[PURCHASE_CACHE_HIT] Found cached result for key: ${idempotencyKey}`);
     return { ...cachedResult, isIdempotent: true };
   }
 
-  // Quick availability check using cache
   const seatsRemaining = seatCache.totalSeats - seatCache.seatsSold;
   if (quantity > seatsRemaining) {
     const soldOutResponse = {
@@ -105,10 +89,8 @@ async function attemptPurchase(idempotencyKey, quantity) {
       seatsRemaining: seatsRemaining
     };
     
-    // Cache the result
     idempotencyCache.set(idempotencyKey, soldOutResponse);
     
-    // Async database update (don't wait for it)
     setImmediate(async () => {
       try {
         await prisma.purchase.create({
@@ -122,14 +104,12 @@ async function attemptPurchase(idempotencyKey, quantity) {
           }
         });
       } catch (error) {
-        // Ignore errors in async update
       }
     });
     
     return soldOutResponse;
   }
 
-  // Optimistic seat reservation
   seatCache.seatsSold += quantity;
   const newSeatsRemaining = seatCache.totalSeats - seatCache.seatsSold;
   
@@ -139,14 +119,11 @@ async function attemptPurchase(idempotencyKey, quantity) {
     statusCode: 200
   };
 
-  // Cache the result immediately
   idempotencyCache.set(idempotencyKey, successResponse);
 
-  // Async database update (don't wait for it)
   setImmediate(async () => {
     try {
       await prisma.$transaction(async (tx) => {
-        // Update event seats
         await tx.event.update({
           where: { id: seatCache.eventId },
           data: {
@@ -156,7 +133,6 @@ async function attemptPurchase(idempotencyKey, quantity) {
           }
         });
 
-        // Create purchase record
         await tx.purchase.create({
           data: {
             eventId: seatCache.eventId,
@@ -173,7 +149,6 @@ async function attemptPurchase(idempotencyKey, quantity) {
     } catch (error) {
       logger.error(`[PURCHASE_DB_ERROR] Failed to persist purchase for key: ${idempotencyKey}`, error);
       
-      // Rollback optimistic update
       seatCache.seatsSold -= quantity;
       idempotencyCache.delete(idempotencyKey);
     }
@@ -183,10 +158,6 @@ async function attemptPurchase(idempotencyKey, quantity) {
   return successResponse;
 }
 
-/**
- * POST /purchase
- * Purchase tickets with ultra-fast in-memory processing
- */
 const purchaseTickets = async (req, res, next) => {
   const { quantity } = req.body;
   const idempotencyKey = req.idempotencyKey;
@@ -194,7 +165,6 @@ const purchaseTickets = async (req, res, next) => {
   try {
     const result = await attemptPurchase(idempotencyKey, quantity);
 
-    // Handle different result types
     if (result.error) {
       recordFailedPurchase();
       return res.status(result.statusCode).json({
@@ -207,7 +177,6 @@ const purchaseTickets = async (req, res, next) => {
       return res.status(statusCode).json(responseData);
     }
 
-    // Record successful purchase metric
     recordSuccessPurchase();
 
     const { statusCode, ...responseData } = result;
@@ -224,10 +193,6 @@ const purchaseTickets = async (req, res, next) => {
   }
 };
 
-/**
- * GET /stats
- * Returns API performance metrics
- */
 const getStats = catchAsync(async (req, res) => {
   const metrics = getMetrics();
   
@@ -243,7 +208,6 @@ const getStats = catchAsync(async (req, res) => {
   });
 });
 
-// Cleanup function for graceful shutdown
 process.on('SIGTERM', () => {
   idempotencyCache.clear();
 });
